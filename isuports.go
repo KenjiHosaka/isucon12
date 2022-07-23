@@ -406,14 +406,13 @@ type PlayerScoreRow struct {
 }
 
 // 排他ロックのためのファイル名を生成する
-func lockFilePath(id int64) string {
+func lockFilePath(id string) string {
 	tenantDBDir := getEnv("ISUCON_TENANT_DB_DIR", "../tenant_db")
-	return filepath.Join(tenantDBDir, fmt.Sprintf("%d.lock", id))
+	return filepath.Join(tenantDBDir, fmt.Sprintf("%s.lock", id))
 }
 
-// 排他ロックする
-func flockByTenantID(tenantID int64) (io.Closer, error) {
-	p := lockFilePath(tenantID)
+func flockByCompetitionID(competitionID string) (io.Closer, error) {
+	p := lockFilePath(competitionID)
 
 	fl := flock.New(p)
 	if err := fl.Lock(); err != nil {
@@ -549,7 +548,7 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-	fl, err := flockByTenantID(tenantID)
+	fl, err := flockByCompetitionID(competitonID)
 	if err != nil {
 		return nil, fmt.Errorf("error flockByTenantID: %w", err)
 	}
@@ -1028,7 +1027,7 @@ func competitionScoreHandler(c echo.Context) error {
 	}
 
 	// / DELETEしたタイミングで参照が来ると空っぽのランキングになるのでロックする
-	fl, err := flockByTenantID(v.tenantID)
+	fl, err := flockByCompetitionID(comp.ID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
@@ -1215,14 +1214,15 @@ func playerHandler(c echo.Context) error {
 		return fmt.Errorf("error Select competition: %w", err)
 	}
 
-	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
+	var fl io.Closer
 	defer fl.Close()
+	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	pss := make([]PlayerScoreRow, 0, len(cs))
 	for _, c := range cs {
+		fl, err = flockByCompetitionID(c.ID)
+		if err != nil {
+			return fmt.Errorf("error flockByTenantID: %w", err)
+		}
 		ps := PlayerScoreRow{}
 		if err := tenantDB.GetContext(
 			ctx,
@@ -1344,7 +1344,7 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-	fl, err := flockByTenantID(v.tenantID)
+	fl, err := flockByCompetitionID(competitionID)
 	if err != nil {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
