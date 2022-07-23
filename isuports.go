@@ -1214,17 +1214,12 @@ func playerHandler(c echo.Context) error {
 		return fmt.Errorf("error Select competition: %w", err)
 	}
 
-	fls := make([]io.Closer, len(cs))
-	defer func() {
-		for _, fl := range fls {
-			fl.Close()
-		}
-	}()
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
 	pss := make([]PlayerScoreRow, 0, len(cs))
-	for i, c := range cs {
-		fls[i], err = flockByCompetitionID(c.ID)
-		if err != nil {
+	for _, c := range cs {
+		fl, e := flockByCompetitionID(c.ID)
+		defer fl.Close()
+		if e != nil {
 			return fmt.Errorf("error flockByTenantID: %w", err)
 		}
 		ps := PlayerScoreRow{}
