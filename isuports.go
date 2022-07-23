@@ -1244,8 +1244,11 @@ func playerHandler(c echo.Context) error {
 
 	psds := make([]PlayerScoreDetail, 0, len(pss))
 	for _, ps := range pss {
-		comp, err := retrieveCompetition(ctx, tenantDB, ps.CompetitionID)
-		if err != nil {
+		comp, exist := arrayFind(cs, func(row CompetitionRow, index int) bool {
+			return row.ID == ps.CompetitionID
+		})
+		if !exist {
+			err = errors.New("competition not exist")
 			return fmt.Errorf("error retrieveCompetition: %w", err)
 		}
 		psds = append(psds, PlayerScoreDetail{
@@ -1601,4 +1604,15 @@ func initializeHandler(c echo.Context) error {
 		Lang: "go",
 	}
 	return c.JSON(http.StatusOK, SuccessResult{Status: true, Data: res})
+}
+
+func arrayFind[T comparable](values []T, f func(value T, index int) bool) (T, bool) {
+	for i, v := range values {
+		if f(v, i) {
+			return v, true
+		}
+	}
+
+	var empty T
+	return empty, false
 }
