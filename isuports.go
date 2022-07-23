@@ -47,8 +47,6 @@ var (
 	adminDB *sqlx.DB
 
 	tenantDB *sqlx.DB
-
-	sqliteDriverName = "sqlite3"
 )
 
 // 環境変数を取得する、なければデフォルト値を返す
@@ -108,20 +106,6 @@ func Run() {
 	e.Debug = true
 	e.Logger.SetLevel(log.DEBUG)
 
-	var (
-		sqlLogger io.Closer
-		err       error
-	)
-	// sqliteのクエリログを出力する設定
-	// 環境変数 ISUCON_SQLITE_TRACE_FILE を設定すると、そのファイルにクエリログをJSON形式で出力する
-	// 未設定なら出力しない
-	// sqltrace.go を参照
-	sqliteDriverName, sqlLogger, err = initializeSQLLogger()
-	if err != nil {
-		e.Logger.Panicf("error initializeSQLLogger: %s", err)
-	}
-	defer sqlLogger.Close()
-
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(SetCacheControlPrivate)
@@ -155,6 +139,7 @@ func Run() {
 
 	e.HTTPErrorHandler = errorResponseHandler
 
+	var err error
 	adminDB, err = connectAdminDB()
 	if err != nil {
 		e.Logger.Fatalf("failed to connect admin db: %v", err)
