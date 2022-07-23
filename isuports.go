@@ -49,7 +49,7 @@ var (
 
 	sqliteDriverName = "sqlite3"
 
-	tenantConnections map[int64]*sqlx.DB
+	tenantConnections = map[int64]*sqlx.DB{}
 )
 
 // 環境変数を取得する、なければデフォルト値を返す
